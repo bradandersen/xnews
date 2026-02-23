@@ -49,8 +49,9 @@ export async function fetchTweets(searchTerms: string[], maxItems = 100): Promis
       item.full_name ||
       author
 
-    // Extract photo/video thumbnail URLs from media field
+    // Extract photo URLs and video URLs from media field
     const mediaUrls: string[] = []
+    const videoUrls: string[] = []
     const mediaItems = (item.media as Record<string, unknown>[] | undefined) || []
     for (const m of mediaItems) {
       if (m.type === 'photo') {
@@ -59,6 +60,15 @@ export async function fetchTweets(searchTerms: string[], maxItems = 100): Promis
       } else if (m.type === 'video' || m.type === 'animated_gif') {
         const thumb = String(m.thumbnailUrl || m.preview_image_url || m.media_url_https || '')
         if (thumb) mediaUrls.push(thumb)
+        // Pick the highest-bitrate mp4 from variants
+        const variants = (m.variants as Record<string, unknown>[] | undefined) || []
+        const mp4s = variants
+          .filter(v => String(v.contentType || v.content_type || '').includes('mp4'))
+          .sort((a, b) => Number(b.bitrate || 0) - Number(a.bitrate || 0))
+        if (mp4s.length > 0) {
+          const videoUrl = String(mp4s[0].url || '')
+          if (videoUrl) videoUrls.push(videoUrl)
+        }
       }
     }
 
@@ -74,6 +84,7 @@ export async function fetchTweets(searchTerms: string[], maxItems = 100): Promis
       url: String(item.url || item.tweet_url || `https://x.com/i/web/status/${id}`),
       isRetweet: Boolean(item.isRetweet || item.is_retweet || item.retweeted_status),
       mediaUrls,
+      videoUrls,
     })
   }
 

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { XPost, Cluster } from './types'
+import type { XPost, Cluster, MediaItem } from './types'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -72,7 +72,7 @@ Rules:
 export async function generateReport(
   posts: XPost[],
   searchTerms: string[]
-): Promise<{ title: string; body: string; wordCount: number }> {
+): Promise<{ title: string; summary: string; body: string; wordCount: number; mediaItems: MediaItem[] }> {
   const postsFormatted = posts
     .filter(p => !p.isRetweet)
     .slice(0, 80)
@@ -95,8 +95,10 @@ ${postsFormatted}
 Write a 1000-2000 word investigative news article that synthesizes all of this social media intelligence into one coherent story.
 
 Requirements:
-- Start with an H1 title (# Title)
-- Open with a compelling lede that hooks the reader immediately
+- FIRST write a single paragraph executive summary (2-4 sentences, no header). This is a TL;DR for readers in a hurry.
+- Then write exactly "---" on its own line as a separator.
+- Then write the full article starting with an H1 title (# Title)
+- Open the article with a compelling lede that hooks the reader immediately
 - Identify the major themes, debates, and narratives emerging from these posts
 - Quote specific accounts by @handle to support key points
 - Write like a real newspaper article — narrative prose, not bullet lists or summaries
@@ -104,37 +106,58 @@ Requirements:
 - End with a "## What to Watch" section on key developments to monitor
 - Weave the tweets into the narrative; do not simply list them
 
-Return only the Markdown article.`,
+Return only the summary, separator, and Markdown article — no other text.`,
       },
     ],
   })
 
-  let body = message.content[0].type === 'text' ? message.content[0].text : ''
+  const raw = message.content[0].type === 'text' ? message.content[0].text : ''
+
+  // Split summary from article body on the --- separator
+  const sepIndex = raw.indexOf('\n---\n')
+  let summary = ''
+  let body = raw
+  if (sepIndex !== -1) {
+    summary = raw.slice(0, sepIndex).trim()
+    body = raw.slice(sepIndex + 5).trim()
+  }
+
   const titleMatch = body.match(/^#\s+(.+)$/m)
   const title = titleMatch ? titleMatch[1] : searchTerms.join(', ')
 
-  // Append media gallery from posts that have images/video thumbnails
-  const allMedia: { url: string; postUrl: string; author: string }[] = []
-  const seen = new Set<string>()
+  // Build structured media items from all posts
+  const seenUrls = new Set<string>()
+  const mediaItems: MediaItem[] = []
   for (const p of posts) {
-    for (const mediaUrl of p.mediaUrls) {
-      if (!seen.has(mediaUrl)) {
-        seen.add(mediaUrl)
-        allMedia.push({ url: mediaUrl, postUrl: p.url, author: p.author })
+    // Video items (actual mp4 URLs take priority)
+    for (let i = 0; i < p.videoUrls.length; i++) {
+      const videoUrl = p.videoUrls[i]
+      if (videoUrl && !seenUrls.has(videoUrl)) {
+        seenUrls.add(videoUrl)
+        mediaItems.push({
+          type: 'video',
+          url: videoUrl,
+          thumbnailUrl: p.mediaUrls[i], // corresponding thumbnail at same index
+          postUrl: p.url,
+          author: p.author,
+        })
       }
     }
-  }
-  if (allMedia.length > 0) {
-    const gallery = allMedia
-      .slice(0, 12)
-      .map(m => `[![@${m.author}](${m.url})](${m.postUrl})`)
-      .join('\n\n')
-    body += `\n\n## Media\n\n${gallery}`
+    // Image items (photos only — skip video thumbnails that are already covered)
+    const imageUrls = p.videoUrls.length > 0
+      ? p.mediaUrls.slice(p.videoUrls.length) // skip thumbnail entries for videos
+      : p.mediaUrls
+    for (const imgUrl of imageUrls) {
+      if (imgUrl && !seenUrls.has(imgUrl)) {
+        seenUrls.add(imgUrl)
+        mediaItems.push({ type: 'image', url: imgUrl, postUrl: p.url, author: p.author })
+      }
+    }
   }
 
   const wordCount = body.split(/\s+/).filter(Boolean).length
 
-  return { title, body, wordCount }
+  return { title, summary, body, wordCount, mediaItems: mediaItems.slice(0, 20) }
 }
 
 export async function generateArticle(

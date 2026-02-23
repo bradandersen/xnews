@@ -50,9 +50,11 @@ export async function POST(req: NextRequest) {
       clusterId: reportId,
       sessionId,
       title: report.title,
+      summary: report.summary,
       body: report.body,
       wordCount: report.wordCount,
       generatedAt: new Date().toISOString(),
+      mediaItems: report.mediaItems,
     })
 
     session.reportId = reportId

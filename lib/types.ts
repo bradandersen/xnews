@@ -1,3 +1,11 @@
+export interface MediaItem {
+  type: 'image' | 'video'
+  url: string
+  thumbnailUrl?: string
+  postUrl: string
+  author: string
+}
+
 export interface XPost {
   id: string
   text: string
@@ -10,6 +18,7 @@ export interface XPost {
   url: string
   isRetweet: boolean
   mediaUrls: string[]
+  videoUrls: string[]
 }
 
 export interface Cluster {
@@ -41,7 +50,9 @@ export interface Article {
   clusterId: string
   sessionId: string
   title: string
+  summary?: string
   body: string
   wordCount: number
   generatedAt: string
+  mediaItems?: MediaItem[]
 }
