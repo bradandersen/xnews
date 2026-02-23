@@ -1,18 +1,24 @@
 'use client'
 
-import { useState, KeyboardEvent } from 'react'
+import { useState, KeyboardEvent, useImperativeHandle, forwardRef } from 'react'
 import { useRouter } from 'next/navigation'
+
+export interface SearchFormHandle {
+  addTopic: (topic: string) => void
+}
 
 interface Props {
   topics?: string[]
 }
 
-export default function SearchForm({ topics = [] }: Props) {
+const SearchForm = forwardRef<SearchFormHandle, Props>(function SearchForm({ topics = [] }, ref) {
   const router = useRouter()
   const [terms, setTerms] = useState<string[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useImperativeHandle(ref, () => ({ addTopic }))
 
   function addTopic(topic: string) {
     const clean = topic.replace(/^[#$]/, '')
@@ -130,4 +136,6 @@ export default function SearchForm({ topics = [] }: Props) {
       )}
     </div>
   )
-}
+})
+
+export default SearchForm

@@ -1,4 +1,4 @@
-import SearchForm from '@/components/SearchForm'
+import DashboardClient from '@/components/DashboardClient'
 import SessionCard from '@/components/SessionCard'
 import { listSessions, getTopTopics } from '@/lib/storage'
 
@@ -16,9 +16,7 @@ export default function Dashboard() {
           <p className="text-gray-500">Turn X posts into news articles powered by Claude AI</p>
         </div>
 
-        <div className="mb-10">
-          <SearchForm topics={topics} />
-        </div>
+        <DashboardClient topics={topics} />
 
         {sessions.length > 0 && (
           <div>
