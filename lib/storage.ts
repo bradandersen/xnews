@@ -78,3 +78,18 @@ export function getArticle(clusterId: string): Article | null {
   if (!fs.existsSync(filePath)) return null
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
 }
+
+export function listArticles(): Article[] {
+  ensureDirs()
+  const files = fs.readdirSync(ARTICLES_DIR).filter(f => f.endsWith('.json'))
+  return files
+    .map(f => {
+      try {
+        return JSON.parse(fs.readFileSync(path.join(ARTICLES_DIR, f), 'utf-8')) as Article
+      } catch {
+        return null
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b!.generatedAt).getTime() - new Date(a!.generatedAt).getTime()) as Article[]
+}
